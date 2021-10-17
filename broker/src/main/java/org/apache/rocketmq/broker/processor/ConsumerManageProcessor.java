@@ -116,6 +116,9 @@ public class ConsumerManageProcessor extends AsyncNettyRequestProcessor implemen
         return response;
     }
 
+    /**
+     * 查询 consumer 消费的偏移量
+     */
     private RemotingCommand queryConsumerOffset(ChannelHandlerContext ctx, RemotingCommand request)
         throws RemotingCommandException {
         final RemotingCommand response =
@@ -126,6 +129,7 @@ public class ConsumerManageProcessor extends AsyncNettyRequestProcessor implemen
             (QueryConsumerOffsetRequestHeader) request
                 .decodeCommandCustomHeader(QueryConsumerOffsetRequestHeader.class);
 
+        // 从 ConsumerOffsetManager 的内存中查询消费偏移量
         long offset =
             this.brokerController.getConsumerOffsetManager().queryOffset(
                 requestHeader.getConsumerGroup(), requestHeader.getTopic(), requestHeader.getQueueId());
@@ -135,9 +139,11 @@ public class ConsumerManageProcessor extends AsyncNettyRequestProcessor implemen
             response.setCode(ResponseCode.SUCCESS);
             response.setRemark(null);
         } else {
+            // offset = -1 表示未被消费过，取 consumeQueue 最小偏移量
             long minOffset =
                 this.brokerController.getMessageStore().getMinOffsetInQueue(requestHeader.getTopic(),
                     requestHeader.getQueueId());
+            // checkInDiskByConsumeOffset ？？？？
             if (minOffset <= 0
                 && !this.brokerController.getMessageStore().checkInDiskByConsumeOffset(
                 requestHeader.getTopic(), requestHeader.getQueueId(), 0)) {

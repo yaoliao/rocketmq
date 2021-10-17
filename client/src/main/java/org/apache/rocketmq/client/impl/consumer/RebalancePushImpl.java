@@ -169,6 +169,7 @@ public class RebalancePushImpl extends RebalanceImpl {
                         result = 0L;
                     } else {
                         try {
+                            // 获取 consumeQueue 最大偏移量
                             result = this.mQClientFactory.getMQAdminImpl().maxOffset(mq);
                         } catch (MQClientException e) {
                             log.warn("Compute consume offset from last offset exception, mq={}, exception={}", mq, e);

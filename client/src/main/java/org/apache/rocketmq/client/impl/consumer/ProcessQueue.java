@@ -79,12 +79,14 @@ public class ProcessQueue {
             return;
         }
 
+        // 最多循环 16 次
         int loop = msgTreeMap.size() < 16 ? msgTreeMap.size() : 16;
         for (int i = 0; i < loop; i++) {
             MessageExt msg = null;
             try {
                 this.treeMapLock.readLock().lockInterruptibly();
                 try {
+                    // 判断最早的一条消息是否过期
                     if (!msgTreeMap.isEmpty() && System.currentTimeMillis() - Long.parseLong(MessageAccessor.getConsumeStartTimeStamp(msgTreeMap.firstEntry().getValue())) > pushConsumer.getConsumeTimeout() * 60 * 1000) {
                         msg = msgTreeMap.firstEntry().getValue();
                     } else {
@@ -99,14 +101,16 @@ public class ProcessQueue {
             }
 
             try {
-
+                // 将过期的消息发送回 broker
                 pushConsumer.sendMessageBack(msg, 3);
                 log.info("send expire msg back. topic={}, msgId={}, storeHost={}, queueId={}, queueOffset={}", msg.getTopic(), msg.getMsgId(), msg.getStoreHost(), msg.getQueueId(), msg.getQueueOffset());
                 try {
                     this.treeMapLock.writeLock().lockInterruptibly();
                     try {
+                        // 再比较一下，防止消息在判断期间被消费掉了
                         if (!msgTreeMap.isEmpty() && msg.getQueueOffset() == msgTreeMap.firstKey()) {
                             try {
+                                // 清理过期消息
                                 removeMessage(Collections.singletonList(msg));
                             } catch (Exception e) {
                                 log.error("send expired msg exception", e);
